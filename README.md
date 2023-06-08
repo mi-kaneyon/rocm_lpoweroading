@@ -1,5 +1,19 @@
 # rocm_lpoweroading
 It is simple ROCm+pytorch power loading script.
+- If it is 1st time use, Resnet-50 model will download.
+## My test environment.
+- Ubuntu 22.04 + Pytorch 2.0.1(ROCm) 
+
+## support information 
+https://github.com/RadeonOpenCompute/ROCm/issues/1698
+This thread may useful for you.
+
+```
+
+export HSA_OVERRIDE_GFX_VERSION=10.3.0
+
+```
+
 
 ## command instruction 
 
