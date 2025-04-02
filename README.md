@@ -1,6 +1,10 @@
 # rocm_lpoweroading
 It is simple ROCm+pytorch power loading script.
 - If it is 1st time use, Resnet-50 model will download.
+
+## New
+Progress bar added
+ 
 ## My test environment.
 - Ubuntu 22.04 + Pytorch 2.0.1(ROCm) 
 
