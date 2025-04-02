@@ -1,53 +1,62 @@
 import argparse
 import time
-import some_module
-import subprocess
+import sys
+import torch
+
+def get_vram_usage():
+    """PyTorch の torch.cuda.mem_get_info() を用いてVRAM使用率を計算（単一GPUの場合）"""
+    try:
+        free_mem, total_mem = torch.cuda.mem_get_info()
+        used_mem = total_mem - free_mem
+        usage = (used_mem / total_mem) * 100.0
+        return usage
+    except Exception as e:
+        # GPUが利用できない場合などは None を返す
+        return None
 
 def main():
-    parser = argparse.ArgumentParser(description='ROCm PyTorch Benchmarking Tool')
-    parser.add_argument('--wattage', type=int, help='Wattage percentage (10-100)')
-    parser.add_argument('--vram', type=str, help='VRAM to use (in GB or "MAX")')
-    parser.add_argument('--duration', type=int, help='Benchmark duration (in minutes)')
+    parser = argparse.ArgumentParser(
+        description="ROCm PyTorch Power Loading Script (Load parameters in percentage)"
+    )
+    parser.add_argument('--load', type=int, default=80,
+                        help="Target GPU load percentage (default: 80)")
+    parser.add_argument('--vram', type=int, default=80,
+                        help="Target VRAM load percentage (default: 80)")
+    parser.add_argument('--duration', type=int, default=5,
+                        help="Loading duration in minutes (default: 5)")
     args = parser.parse_args()
 
-    # Validate arguments
-    if not (10 <= args.wattage <= 100):
-        raise ValueError('Wattage must be between 10 and 100')
-    if not (5 <= args.duration <= 24*60):
-        raise ValueError('Duration must be between 5 minutes and 24 hours')
+    # パラメータの妥当性チェック
+    if not (0 <= args.load <= 100):
+        sys.exit("Error: --load must be between 0 and 100.")
+    if not (0 <= args.vram <= 100):
+        sys.exit("Error: --vram must be between 0 and 100.")
+    if args.duration <= 0:
+        sys.exit("Error: --duration must be a positive number.")
 
-    # Run the benchmark
-    start_time = time.time()
-    end_time = start_time + args.duration * 60
-    last_stats_time = start_time
-    while time.time() < end_time:
-        # Run a single benchmark iteration
-        some_module.run_benchmark(args.wattage, args.vram)
+    print(f"Starting ROCm power loading test with:")
+    print(f"  GPU Load: {args.load}%")
+    print(f"  VRAM Load: {args.vram}%")
+    print(f"  Duration: {args.duration} minute(s)")
 
-        # Print progress bar
-        elapsed_time = time.time() - start_time
-        progress = elapsed_time / (args.duration * 60)
-        print_progress_bar(progress)
+    # 以下はサンプルの疑似負荷処理：進捗バーと同時にVRAM使用率を更新表示する
+    total_time_sec = args.duration * 60
+    update_interval = 0.1  # 0.1秒ごとに更新
+    total_steps = int(total_time_sec / update_interval)
+    
+    for i in range(total_steps):
+        progress = (i / total_steps) * 100
+        # GPU VRAM使用率の取得
+        vram_usage = get_vram_usage()
+        vram_str = f"{vram_usage:5.1f}%" if vram_usage is not None else "N/A"
+        bar_length = 50
+        filled_length = int(bar_length * progress // 100)
+        bar = '█' * filled_length + '-' * (bar_length - filled_length)
+        # 例: "|███████████████████████████████████████-------| 86.7% Complete, VRAM Usage: 80.0%"
+        print(f"|{bar}| {progress:5.1f}% Complete, VRAM Usage: {vram_str}", end='\r')
+        time.sleep(update_interval)
+    
+    print("\nTest completed.")
 
-        # Print GPU usage stats every 30 seconds
-        if time.time() - last_stats_time >= 30:
-            print_gpu_usage_stats()
-            last_stats_time = time.time()
-
-def print_progress_bar(progress):
-    # Print a simple ASCII progress bar
-    bar_length = 50
-    filled_length = int(round(bar_length * progress))
-    bar = '█' * filled_length + '-' * (bar_length - filled_length)
-    print(f'\r|{bar}| {progress*100:.1f}% Complete', end='\r')
-
-def print_gpu_usage_stats():
-    # Call rocm-smi and get its output
-    output = subprocess.check_output(['rocm-smi']).decode('utf-8')
-
-    # Parse the output and print the relevant stats
-    # This will depend on the specific format of the rocm-smi output
-    print(output)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
